@@ -1,39 +1,44 @@
-"""High-level pipeline combining parse, filter, transform, and output."""
-from typing import Dict, Any, Iterable, Iterator, List, Optional
+"""End-to-end pipeline: parse, filter, transform, sample, sort, output."""
+from __future__ import annotations
+
+from typing import Iterable, Iterator
 
 from logslice.parser import parse_line
 from logslice.filter import filter_by_time, filter_by_field
 from logslice.transform import apply_transforms
 from logslice.output import format_record
+from logslice.sampler import sample_every_nth
 
 
 def process_lines(
     lines: Iterable[str],
     *,
-    start: Optional[str] = None,
-    end: Optional[str] = None,
-    field_filters: Optional[List[str]] = None,
-    pick: Optional[List[str]] = None,
-    drop: Optional[List[str]] = None,
-    rename: Optional[Dict[str, str]] = None,
+    start: str | None = None,
+    end: str | None = None,
+    field_filter: tuple[str, str] | None = None,
+    transforms: list | None = None,
     fmt: str = "json",
+    sample_n: int = 1,
 ) -> Iterator[str]:
-    """Parse, filter, transform and format an iterable of raw log lines.
+    """Parse, filter, optionally transform and sample, then format each line."""
+    records: list[dict] = []
+    for line in lines:
+        record = parse_line(line.rstrip("\n"))
+        if record is None:
+            continue
+        records.append(record)
 
-    Yields formatted output lines ready for writing.
-    """
-    records: Iterable[Dict[str, Any]] = (
-        r for raw in lines if (r := parse_line(raw.rstrip("\n"))) is not None
-    )
+    records = list(filter_by_time(records, start=start, end=end))
 
-    records = filter_by_time(records, start=start, end=end)
+    if field_filter is not None:
+        key, value = field_filter
+        records = list(filter_by_field(records, key, value))
 
-    if field_filters:
-        for expr in field_filters:
-            if "=" in expr:
-                key, val = expr.split("=", 1)
-                records = filter_by_field(records, key.strip(), val.strip())
+    if transforms:
+        records = [apply_transforms(r, transforms) for r in records]
+
+    if sample_n > 1:
+        records = list(sample_every_nth(records, sample_n))
 
     for record in records:
-        transformed = apply_transforms(record, pick=pick, drop=drop, rename=rename)
-        yield format_record(transformed, fmt=fmt)
+        yield format_record(record, fmt=fmt)

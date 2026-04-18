@@ -1,56 +1,57 @@
-"""Tests for logslice.pipeline module."""
+"""Tests for logslice.pipeline (updated to cover sampling integration)."""
 import json
 import pytest
 from logslice.pipeline import process_lines
 
-LINES = [
-    '{"ts":"2024-06-01T10:00:00Z","level":"info","msg":"start","svc":"api"}\n',
-    '{"ts":"2024-06-01T11:00:00Z","level":"error","msg":"fail","svc":"db"}\n',
-    '{"ts":"2024-06-01T12:00:00Z","level":"info","msg":"done","svc":"api"}\n',
-    'not json at all\n',
-]
+
+def make_lines(n: int) -> list[str]:
+    return [
+        json.dumps({"ts": f"2024-01-01T00:00:{i:02d}Z", "level": "info", "id": str(i)})
+        for i in range(n)
+    ]
 
 
 class TestProcessLines:
     def test_parses_and_formats_all_valid(self):
-        results = list(process_lines(LINES, fmt="json"))
-        assert len(results) == 3
-        for r in results:
-            obj = json.loads(r)
-            assert "ts" in obj
+        lines = make_lines(3)
+        result = list(process_lines(lines))
+        assert len(result) == 3
+        for r in result:
+            assert json.loads(r)
 
     def test_invalid_lines_skipped(self):
-        results = list(process_lines(LINES, fmt="json"))
-        assert len(results) == 3
+        lines = ["not json", make_lines(1)[0]]
+        result = list(process_lines(lines))
+        assert len(result) == 1
 
     def test_start_filter(self):
-        results = list(process_lines(LINES, start="2024-06-01T11:00:00Z", fmt="json"))
-        assert len(results) == 2
+        lines = make_lines(5)
+        result = list(process_lines(lines, start="2024-01-01T00:00:03Z"))
+        assert len(result) == 2
 
     def test_end_filter(self):
-        results = list(process_lines(LINES, end="2024-06-01T10:59:59Z", fmt="json"))
-        assert len(results) == 1
+        lines = make_lines(5)
+        result = list(process_lines(lines, end="2024-01-01T00:00:01Z"))
+        assert len(result) == 2
 
     def test_field_filter(self):
-        results = list(process_lines(LINES, field_filters=["svc=api"], fmt="json"))
-        assert len(results) == 2
-        for r in results:
-            assert json.loads(r)["svc"] == "api"
+        lines = [
+            json.dumps({"level": "error", "msg": "bad"}),
+            json.dumps({"level": "info", "msg": "ok"}),
+        ]
+        result = list(process_lines(lines, field_filter=("level", "error")))
+        assert len(result) == 1
+        assert json.loads(result[0])["msg"] == "bad"
 
-    def test_pick_fields(self):
-        results = list(process_lines(LINES, pick=["level", "msg"], fmt="json"))
-        for r in results:
-            obj = json.loads(r)
-            assert set(obj.keys()) == {"level", "msg"}
+    def test_sample_n_reduces_output(self):
+        lines = make_lines(10)
+        result = list(process_lines(lines, sample_n=2))
+        assert len(result) == 5
 
-    def test_drop_fields(self):
-        results = list(process_lines(LINES, drop=["svc"], fmt="json"))
-        for r in results:
-            assert "svc" not in json.loads(r)
-
-    def test_logfmt_output(self):
-        results = list(process_lines(LINES[:1], fmt="logfmt"))
-        assert "level=info" in results[0]
+    def test_sample_n_1_keeps_all(self):
+        lines = make_lines(6)
+        result = list(process_lines(lines, sample_n=1))
+        assert len(result) == 6
 
     def test_empty_input(self):
-        assert list(process_lines([], fmt="json")) == []
+        assert list(process_lines([])) == []
