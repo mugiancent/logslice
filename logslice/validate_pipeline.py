@@ -1,39 +1,39 @@
-"""Integration of schema validation into the log processing pipeline."""
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
+"""Validate records through a Schema, partitioning valid from invalid."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Iterable, Iterator, List, Tuple
+
 from logslice.schema import Schema
-from logslice.validator import ValidationError
+
+Record = Dict[str, Any]
 
 
-def validate_records(
-    records: Iterable[Dict[str, Any]],
-    schema: Schema,
-    drop_invalid: bool = True,
-) -> Iterator[Dict[str, Any]]:
-    """Yield records that pass schema validation, optionally dropping failures."""
+def validate_records(records: Iterable[Record], schema: Schema) -> Iterator[Record]:
+    """Yield only records that pass *schema* validation."""
     for record in records:
         if schema.is_valid(record):
-            yield record
-        elif not drop_invalid:
             yield record
 
 
 def validate_records_with_errors(
-    records: Iterable[Dict[str, Any]],
-    schema: Schema,
-) -> Iterator[Tuple[Dict[str, Any], List[ValidationError]]]:
-    """Yield (record, errors) tuples for every record."""
+    records: Iterable[Record], schema: Schema
+) -> Iterator[Tuple[Record, List[str]]]:
+    """Yield (record, errors) tuples; errors is empty list when valid."""
     for record in records:
         errors = schema.validate(record)
         yield record, errors
 
 
 def partition_records(
-    records: Iterable[Dict[str, Any]],
-    schema: Schema,
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Split records into (valid, invalid) lists."""
-    valid: List[Dict[str, Any]] = []
-    invalid: List[Dict[str, Any]] = []
-    for record in records:
-        (valid if schema.is_valid(record) else invalid).append(record)
+    records: Iterable[Record], schema: Schema
+) -> Tuple[List[Record], List[Tuple[Record, List[str]]]]:
+    """Split records into (valid, invalid) where invalid carries error lists."""
+    valid: List[Record] = []
+    invalid: List[Tuple[Record, List[str]]] = []
+    for record, errors in validate_records_with_errors(records, schema):
+        if errors:
+            invalid.append((record, errors))
+        else:
+            valid.append(record)
     return valid, invalid
