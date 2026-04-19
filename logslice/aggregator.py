@@ -26,6 +26,19 @@ def count_by(records: Iterable[Dict[str, Any]], field: str) -> Dict[str, int]:
     return dict(counts)
 
 
+def top_n(records: Iterable[Dict[str, Any]], field: str, n: int = 10) -> List[Dict[str, Any]]:
+    """Return the *n* most common values of *field* with their counts.
+
+    Each entry in the returned list is a dict with keys ``value`` and ``count``,
+    sorted descending by count.
+    """
+    if n <= 0:
+        raise ValueError(f"n must be a positive integer, got {n!r}")
+    counts = count_by(records, field)
+    sorted_counts = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+    return [{"value": value, "count": count} for value, count in sorted_counts[:n]]
+
+
 def summarise(
     records: Iterable[Dict[str, Any]],
     group_field: str,
