@@ -53,6 +53,10 @@ class TestCountFieldsPresent:
     def test_empty_fields_list(self):
         assert count_fields_present(RECORDS, []) == {}
 
+    def test_nonexistent_field_returns_zero_count(self):
+        result = count_fields_present(RECORDS, ["missing"])
+        assert result == {"missing": 0}
+
 
 class TestTopN:
     def test_returns_sorted(self):
@@ -66,3 +70,6 @@ class TestTopN:
     def test_invalid_n_raises(self):
         with pytest.raises(ValueError):
             top_n({}, 0)
+
+    def test_empty_counts_returns_empty(self):
+        assert top_n({}, 5) == []
