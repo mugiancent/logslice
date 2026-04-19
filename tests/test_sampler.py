@@ -69,3 +69,15 @@ class TestSampleReservoir:
 
     def test_empty_input(self):
         assert sample_reservoir([], 5) == []
+
+    def test_result_is_subset_of_input(self):
+        """All records returned by reservoir sampling must come from the input."""
+        result = sample_reservoir(RECORDS, 5)
+        for record in result:
+            assert record in RECORDS
+
+    def test_no_duplicates(self):
+        """Reservoir sampling should not return duplicate records."""
+        result = sample_reservoir(RECORDS, len(RECORDS))
+        seen_ids = [r["id"] for r in result]
+        assert len(seen_ids) == len(set(seen_ids))
