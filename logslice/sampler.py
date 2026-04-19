@@ -20,6 +20,9 @@ def sample_by_rate(records: Iterable[dict], rate: float) -> Iterator[dict]:
         raise ValueError(f"rate must be between 0.0 and 1.0, got {rate}")
     if rate == 0.0:
         return
+    if rate == 1.0:
+        yield from records
+        return
     for record in records:
         if _hash_fraction(record) < rate:
             yield record
