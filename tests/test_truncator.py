@@ -41,6 +41,17 @@ class TestTruncateField:
         result = truncate_field(r, "msg", max_length=5)
         assert result["msg"] == "hello"
 
+    def test_empty_string_unchanged(self):
+        r = {"msg": ""}
+        result = truncate_field(r, "msg", max_length=5)
+        assert result["msg"] == ""
+
+    def test_suffix_only_appended_when_truncated(self):
+        """Suffix should not appear when the value is within max_length."""
+        r = {"msg": "hi"}
+        result = truncate_field(r, "msg", max_length=10, suffix="...")
+        assert result["msg"] == "hi"
+
 
 class TestTruncateFields:
     def test_truncates_multiple_fields(self):
@@ -65,6 +76,11 @@ class TestTruncateAllStrings:
     def test_skips_non_strings(self):
         r = {"count": 999, "flag": True}
         result = truncate_all_strings(r, max_length=2)
+        assert result == r
+
+    def test_short_strings_unchanged(self):
+        r = {"a": "hi", "b": "ok"}
+        result = truncate_all_strings(r, max_length=10)
         assert result == r
 
 
