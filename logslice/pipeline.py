@@ -45,3 +45,39 @@ def process_lines(
 
     for record in valid:
         yield format_record(record, fmt=fmt)
+
+
+def count_lines(
+    lines: Iterable[str],
+    start: Optional[str] = None,
+    end: Optional[str] = None,
+    field_filter: Optional[Dict[str, str]] = None,
+) -> Dict[str, int]:
+    """Count parsed, filtered, and skipped lines without producing output.
+
+    Returns a dict with keys ``'total'``, ``'parsed'``, and ``'matched'``
+    so callers can report basic pipeline statistics.
+    """
+    total = 0
+    parsed = 0
+    matched = 0
+
+    for line in lines:
+        total += 1
+        record = parse_line(line)
+        if record is None:
+            continue
+        parsed += 1
+        # Reuse the filtering logic by delegating to process_lines with no
+        # output formatting overhead beyond a simple sentinel format.
+        records = [record]
+        if start or end:
+            from logslice.filter import filter_by_time  # noqa: F811
+            records = list(filter_by_time(iter(records), start=start, end=end))
+        if field_filter and records:
+            from logslice.filter import filter_by_field  # noqa: F811
+            for key, value in field_filter.items():
+                records = list(filter_by_field(iter(records), key, value))
+        matched += len(records)
+
+    return {"total": total, "parsed": parsed, "matched": matched}
