@@ -69,3 +69,20 @@ def cast_field(
             return default
 
     return format_field(record, field, _cast)
+
+
+def rename_field(
+    record: Dict[str, Any],
+    old_name: str,
+    new_name: str,
+) -> Dict[str, Any]:
+    """Return a new record with *old_name* key renamed to *new_name*.
+
+    If *old_name* is absent the record is returned unchanged.  If *new_name*
+    already exists it will be overwritten by the value from *old_name*.
+    """
+    if old_name not in record:
+        return dict(record)
+    result = dict(record)
+    result[new_name] = result.pop(old_name)
+    return result
