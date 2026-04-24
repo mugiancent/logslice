@@ -39,6 +39,27 @@ def require_pattern(record: Dict[str, Any], field: str, pattern: str) -> List[Va
     return []
 
 
+def require_range(
+    record: Dict[str, Any],
+    field: str,
+    min_value: Optional[float] = None,
+    max_value: Optional[float] = None,
+) -> List[ValidationError]:
+    """Return an error if a numeric field value falls outside [min_value, max_value].
+
+    Either bound may be omitted (None) to leave that side unbounded.
+    Returns an empty list if the field is absent.
+    """
+    if field not in record:
+        return []
+    value = record[field]
+    if min_value is not None and value < min_value:
+        return [{"field": field, "error": f"value {value!r} is less than minimum {min_value!r}"}]
+    if max_value is not None and value > max_value:
+        return [{"field": field, "error": f"value {value!r} is greater than maximum {max_value!r}"}]
+    return []
+
+
 def apply_validations(
     record: Dict[str, Any],
     rules: List[Callable[[Dict[str, Any]], List[ValidationError]]],
